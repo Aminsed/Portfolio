@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Amin Sedaghat's Portfolio</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <link type="text/css" rel="stylesheet" href="./static/main.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+        }
+        #name {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            font-size: 20px;
+            font-family: Arial, sans-serif;
+        }
+        #links {
+            position: absolute;
+            top: 50px;
+            left: 10px;
+            color: white;
+            font-size: 18px;
+            font-family: Arial, sans-serif;
+        }
+        #links a {
+            color: white;
+            text-decoration: none;
+            display: block;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        #links img {
+            vertical-align: middle;
+            width: 24px;
+            height: 24px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div id="name">Amin Sedaghat</div>
+    <div id="links">
+        <a href="https://github.com/Aminsed" target="_blank" class="fancy-button">
+            <img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub">
+            <span>GitHub</span>
+        </a>
+        <a href="https://medium.com/@amin32846" target="_blank" class="fancy-button">
+            <img src="https://cdn.iconscout.com/icon/free/png-256/medium-47-433328.png" alt="Medium">
+            <span>Medium</span>
+        </a>
+    </div>
+    
+    <style>
+        #name {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 36px;
+            font-family: 'Arial', sans-serif;
+            text-shadow: 0 0 10px rgba(255,255,255,0.5);
+            letter-spacing: 2px;
+        }
+        
+        #links {
+            position: absolute;
+            top: 100px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .fancy-button {
+            display: flex;
+            align-items: center;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 30px;
+            color: #fff;
+            text-decoration: none;
+            font-family: 'Arial', sans-serif;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+        
+        .fancy-button:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.4);
+            box-shadow: 0 0 20px rgba(255,255,255,0.3);
+        }
+        
+        .fancy-button img {
+            width: 24px;
+            height: 24px;
+            margin-right: 10px;
+            filter: drop-shadow(0 0 2px rgba(255,255,255,0.5));
+        }
+        
+        .fancy-button span {
+            text-shadow: 0 0 5px rgba(255,255,255,0.5);
+        }
+    </style>
+    <!--  -->
+
+    <audio id="background-audio" loop>
+        <source src="./static/background.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "./static/build/three.module.js",
+                "three/addons/": "./static/jsm/"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import Stats from 'three/addons/libs/stats.module.js';
+        import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        let group;
+        let container, stats;
+        const particlesData = [];
+        let camera, scene, renderer;
+        let positions, colors;
+        let particles;
+        let pointCloud;
+        let particlePositions;
+        let linesMesh;
+
+        const maxParticleCount = 1000;
+        let particleCount = 500;
+        const r = 800;
+        const rHalf = r / 2;
+
+        const effectController = {
+            showDots: true,
+            showLines: true,
+            minDistance: 150,
+            limitConnections: false,
+            maxConnections: 20,
+            particleCount: 500
+        };
+
+        init();
+        initAudio();
+
+        function initAudio() {
+            const audio = document.getElementById('background-audio');
+            audio.volume = 0.5; // Set the volume to 50%
+        }
+
+        function initGUI() {
+            const gui = new GUI();
+            gui.add(effectController, 'showDots').onChange(function (value) {
+                pointCloud.visible = value;
+            });
+            gui.add(effectController, 'showLines').onChange(function (value) {
+                linesMesh.visible = value;
+            });
+            gui.add(effectController, 'minDistance', 10, 300);
+            gui.add(effectController, 'limitConnections');
+            gui.add(effectController, 'maxConnections', 0, 30, 1);
+            gui.add(effectController, 'particleCount', 0, maxParticleCount, 1).onChange(function (value) {
+                particleCount = value;
+                particles.setDrawRange(0, particleCount);
+            });
+        }
+
+        function init() {
+            initGUI();
+
+            container = document.getElementById('container');
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 4000);
+            camera.position.z = 1750;
+
+            const controls = new OrbitControls(camera, container);
+            controls.minDistance = 1000;
+            controls.maxDistance = 3000;
+
+            scene = new THREE.Scene();
+
+            group = new THREE.Group();
+            scene.add(group);
+
+            const helper = new THREE.BoxHelper(new THREE.Mesh(new THREE.BoxGeometry(r, r, r)));
+            helper.material.color.setHex(0x474747);
+            helper.material.blending = THREE.AdditiveBlending;
+            helper.material.transparent = true;
+            group.add(helper);
+
+            const segments = maxParticleCount * maxParticleCount;
+
+            positions = new Float32Array(segments * 3);
+            colors = new Float32Array(segments * 3);
+
+            const pMaterial = new THREE.PointsMaterial({
+                color: 0xFFFFFF,
+                size: 3,
+                blending: THREE.AdditiveBlending,
+                transparent: true,
+                sizeAttenuation: false
+            });
+
+            particles = new THREE.BufferGeometry();
+            particlePositions = new Float32Array(maxParticleCount * 3);
+
+            for (let i = 0; i < maxParticleCount; i++) {
+                const x = Math.random() * r - r / 2;
+                const y = Math.random() * r - r / 2;
+                const z = Math.random() * r - r / 2;
+
+                particlePositions[i * 3] = x;
+                particlePositions[i * 3 + 1] = y;
+                particlePositions[i * 3 + 2] = z;
+
+                particlesData.push({
+                    velocity: new THREE.Vector3(-1 + Math.random() * 2, -1 + Math.random() * 2, -1 + Math.random() * 2),
+                    numConnections: 0
+                });
+            }
+
+            particles.setDrawRange(0, particleCount);
+            particles.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3).setUsage(THREE.DynamicDrawUsage));
+
+            pointCloud = new THREE.Points(particles, pMaterial);
+            group.add(pointCloud);
+
+            const geometry = new THREE.BufferGeometry();
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3).setUsage(THREE.DynamicDrawUsage));
+
+            geometry.computeBoundingSphere();
+
+            geometry.setDrawRange(0, 0);
+
+            const material = new THREE.LineBasicMaterial({
+                vertexColors: true,
+                blending: THREE.AdditiveBlending,
+                transparent: true
+            });
+
+            linesMesh = new THREE.LineSegments(geometry, material);
+            group.add(linesMesh);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setAnimationLoop(animate);
+            container.appendChild(renderer.domElement);
+
+            stats = new Stats();
+            container.appendChild(stats.dom);
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            let vertexpos = 0;
+            let colorpos = 0;
+            let numConnected = 0;
+
+            for (let i = 0; i < particleCount; i++)
+                particlesData[i].numConnections = 0;
+
+            for (let i = 0; i < particleCount; i++) {
+                // get the particle
+                const particleData = particlesData[i];
+
+                particlePositions[i * 3] += particleData.velocity.x;
+                particlePositions[i * 3 + 1] += particleData.velocity.y;
+                particlePositions[i * 3 + 2] += particleData.velocity.z;
+
+                if (particlePositions[i * 3 + 1] < - rHalf || particlePositions[i * 3 + 1] > rHalf)
+                    particleData.velocity.y = - particleData.velocity.y;
+
+                if (particlePositions[i * 3] < - rHalf || particlePositions[i * 3] > rHalf)
+                    particleData.velocity.x = - particleData.velocity.x;
+
+                if (particlePositions[i * 3 + 2] < - rHalf || particlePositions[i * 3 + 2] > rHalf)
+                    particleData.velocity.z = - particleData.velocity.z;
+
+                if (effectController.limitConnections && particleData.numConnections >= effectController.maxConnections)
+                    continue;
+
+                // Check collision
+                for (let j = i + 1; j < particleCount; j++) {
+                    const particleDataB = particlesData[j];
+                    if (effectController.limitConnections && particleDataB.numConnections >= effectController.maxConnections)
+                        continue;
+
+                    const dx = particlePositions[i * 3] - particlePositions[j * 3];
+                    const dy = particlePositions[i * 3 + 1] - particlePositions[j * 3 + 1];
+                    const dz = particlePositions[i * 3 + 2] - particlePositions[j * 3 + 2];
+                    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                    if (dist < effectController.minDistance) {
+                        particleData.numConnections++;
+                        particleDataB.numConnections++;
+
+                        const alpha = 1.0 - dist / effectController.minDistance;
+
+                        positions[vertexpos++] = particlePositions[i * 3];
+                        positions[vertexpos++] = particlePositions[i * 3 + 1];
+                        positions[vertexpos++] = particlePositions[i * 3 + 2];
+
+                        positions[vertexpos++] = particlePositions[j * 3];
+                        positions[vertexpos++] = particlePositions[j * 3 + 1];
+                        positions[vertexpos++] = particlePositions[j * 3 + 2];
+
+                        colors[colorpos++] = alpha;
+                        colors[colorpos++] = alpha;
+                        colors[colorpos++] = alpha;
+
+                        colors[colorpos++] = alpha;
+                        colors[colorpos++] = alpha;
+                        colors[colorpos++] = alpha;
+
+                        numConnected++;
+                    }
+                }
+            }
+
+            linesMesh.geometry.setDrawRange(0, numConnected * 2);
+            linesMesh.geometry.attributes.position.needsUpdate = true;
+            linesMesh.geometry.attributes.color.needsUpdate = true;
+
+            pointCloud.geometry.attributes.position.needsUpdate = true;
+
+            render();
+
+            stats.update();
+        }
+
+        function render() {
+            const time = Date.now() * 0.001;
+
+            group.rotation.y = time * 0.1;
+            renderer.render(scene, camera);
+        }
+
+        // Ensure audio plays on user interaction
+        document.addEventListener('click', function() {
+            const audio = document.getElementById('background-audio');
+            audio.play().catch(function(error) {
+                console.log('Audio play failed:', error);
+            });
+        });
+
+    </script>
+</body>
+</html>
